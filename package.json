@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@supabase/supabse-js": "^2.x.x",
+    "@supabase/supabase-js": "^2.x.x",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
