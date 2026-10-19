@@ -437,4 +437,4 @@ app.post("/api/areas_salud", async function (req, res) {
 // Para qué sirve: crea un área de salud. La clave es codigo_postal (no es
 // autoincremental), así que se devuelve ese valor.
 
-app.listen(3000);
+app.listen(process.env.PORT || 3000);
