@@ -1,0 +1,184 @@
+/* ===============================
+   RESET Y BASE
+================================= */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    min-height: 100vh;
+    padding: 40px 20px;
+    color: #2c3e50;
+}
+
+/* ===============================
+   TARJETAS / SECCIONES
+================================= */
+
+section {
+    background: #ffffff;
+    padding: 35px;
+    border-radius: 14px;
+    max-width: 1000px;
+    margin: 0 auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===============================
+   TÍTULOS
+================================= */
+
+h2 {
+    margin-bottom: 25px;
+    font-weight: 600;
+    font-size: 22px;
+    border-left: 5px solid #3498db;
+    padding-left: 12px;
+}
+
+h3 {
+    margin: 30px 0 15px;
+    font-size: 18px;
+    color: #34495e;
+}
+
+/* ===============================
+   FORMULARIOS
+================================= */
+
+label {
+    display: block;
+    margin-bottom: 18px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+input, select {
+    width: 100%;
+    padding: 10px 12px;
+    margin-top: 6px;
+    border-radius: 8px;
+    border: 1px solid #dcdcdc;
+    background: #f9fafc;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+input:focus, select:focus {
+    border-color: #3498db;
+    background: #ffffff;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.15);
+}
+
+/* ===============================
+   BOTONES
+================================= */
+
+button {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    margin-right: 8px;
+    margin-top: 12px;
+    transition: all 0.2s ease;
+}
+
+/* Botones principales */
+#btn-login,
+#btn-guardar-gestor,
+#btn-buscar,
+#btn-guardar-recurso,
+#btn-nuevo-recurso {
+    background: #3498db;
+    color: white;
+}
+
+#btn-login:hover,
+#btn-guardar-gestor:hover,
+#btn-buscar:hover,
+#btn-guardar-recurso:hover,
+#btn-nuevo-recurso:hover {
+    background: #2980b9;
+    transform: translateY(-2px);
+}
+
+/* Botones secundarios */
+#btn-ir-registro,
+#btn-cancelar-gestor,
+#btn-salir,
+#btn-volver-inicio,
+#btn-editar-gestor {
+    background: #ecf0f1;
+    color: #2c3e50;
+}
+
+#btn-ir-registro:hover,
+#btn-cancelar-gestor:hover,
+#btn-salir:hover,
+#btn-volver-inicio:hover,
+#btn-editar-gestor:hover {
+    background: #dcdde1;
+}
+
+/* ===============================
+   TABLAS
+================================= */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-size: 14px;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+thead {
+    background: #3498db;
+    color: white;
+}
+
+th, td {
+    padding: 12px 14px;
+    text-align: left;
+}
+
+tbody tr {
+    background: #ffffff;
+    border-bottom: 1px solid #ecf0f1;
+    transition: background 0.2s;
+}
+
+tbody tr:nth-child(even) {
+    background: #f9fafc;
+}
+
+tbody tr:hover {
+    background: #eef6fc;
+}
+
+/* ===============================
+   MENSAJES DE ERROR
+================================= */
+
+#login-error {
+    color: #e74c3c;
+    margin-top: 12px;
+    font-size: 13px;
+    font-weight: 500;
+}

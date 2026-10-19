@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Aplicación Gestor - Recursos Hospitalarios</title>
+    <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+    <!-- ================= LOGIN ================= -->
+    <section id="pantalla-login">
+        <h2>Aplicación Gestor</h2>
+
+        <label>
+            Usuario:
+            <input type="text" id="login-usuario">
+        </label>
+
+        <label>
+            Contraseña:
+            <input type="password" id="login-password">
+        </label>
+
+        <button id="btn-login">Entrar</button>
+        <button id="btn-ir-registro">Registrar</button>
+
+        <p id="login-error"></p>
+    </section>
+
+    <!-- ========== REGISTRO / EDICIÓN GESTOR ========== -->
+    <section id="pantalla-gestor" hidden>
+        <h2>Datos del gestor</h2>
+
+        <label>
+            Nombre:
+            <input type="text" id="gestor-nombre">
+        </label>
+
+        <label>
+            Apellidos:
+            <input type="text" id="gestor-apellidos">
+        </label>
+
+        <label>
+            Usuario:
+            <input type="text" id="gestor-usuario">
+        </label>
+
+        <label>
+            Contraseña:
+            <input type="password" id="gestor-password">
+        </label>
+
+        <button id="btn-guardar-gestor">Guardar</button>
+        <button id="btn-cancelar-gestor">Cancelar</button>
+    </section>
+
+    <!-- ================= INICIO ================= -->
+    <section id="pantalla-inicio" hidden>
+        <h2>Inicio</h2>
+
+        <p>
+            Bienvenido <span id="nombre-gestor"></span>
+            <button id="btn-editar-gestor">Editar datos</button>
+        </p>
+
+        <!-- ===== CREACIÓN DE ÁREAS (desactivado; su JS también está comentado en main.js) =====
+        <h3>Creación de Áreas</h3>
+        <label>
+            Código Postal
+            <input type="text" id="codigo-postal">
+            Nombre de la zona
+            <input type="text" id="nombre-zona">
+        </label>
+        <button id="btn-crear-zona">Crear zona</button>
+        <br><br>
+        ===== FIN CREACIÓN DE ÁREAS ===== -->
+
+        <!-- ================= MINISTERIO ================= -->
+        <h3>Ministerio de Sanidad</h3>
+        <button id="btn-enviar-ministerio">Enviar reservas al Ministerio</button>
+
+        <h3>Ranking de reservas por área médica</h3>
+        <table border="1">
+            <thead>
+                <tr><th>#</th><th>Área médica</th><th>Reservas totales</th></tr>
+            </thead>
+            <tbody id="tabla-ranking"></tbody>
+        </table>
+
+        <h3>Búsqueda de recursos</h3>
+
+        <label>
+            Categoría:
+            <select id="filtro-categoria">
+                <option value="">Todos</option>
+            </select>
+        </label>
+
+        <label>
+            Modelo:
+            <select id="filtro-modelo">
+                <option value="">Todos</option>
+            </select>
+        </label>
+
+        <label>
+            Ubicación:
+            <select id="filtro-ubicacion">
+                <option value="">Todos</option>
+            </select>
+        </label>
+
+        <label>
+            Estado:
+            <select id="filtro-estado">
+                <option value="">Todos</option>
+                <option value="0">Operativo</option>
+                <option value="1">Defectuoso</option>
+                <option value="2">Mantenimiento</option>
+            </select>
+        </label>
+
+        <button id="btn-buscar">Buscar</button>
+
+        <h3>Recursos</h3>
+
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Nº Serie</th>
+                    <th>Categoría</th>
+                    <th>Modelo</th>
+                    <th>Ubicación</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-recursos">
+                <!-- filas dinámicas -->
+            </tbody>
+        </table>
+
+        <button id="btn-nuevo-recurso">Añadir recurso</button>
+        <button id="btn-salir">Salir</button>
+
+        <h3>Avisos</h3>
+        <table border="1" width="100%">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Origen</th>
+                    <th>Aviso</th>
+                </tr>
+            </thead>
+            <tbody id="avisosBody"></tbody>
+        </table>
+    </section>
+
+    <!-- ================= RECURSO ================= -->
+    <section id="pantalla-recurso" hidden>
+        <h2>Recurso</h2>
+
+        <label>
+            Categoría:
+            <select id="recurso-categoria"></select>
+        </label>
+
+        <label>
+            Modelo:
+            <select id="recurso-modelo"></select>
+        </label>
+
+        <label>
+            Número de serie:
+            <input type="text" id="recurso-numero-serie">
+        </label>
+
+        <label>
+            Ubicación:
+            <select id="recurso-ubicacion"></select>
+        </label>
+
+        <label>
+            Estado:
+            <select id="recurso-estado">
+                <option value="0">Operativo</option>
+                <option value="1">Defectuoso</option>
+                <option value="2">Mantenimiento</option>
+            </select>
+        </label>
+
+        <button id="btn-guardar-recurso">Guardar</button>
+
+        <h3>Reservas</h3>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Sanitario</th>
+                    <th>Horas</th>
+                    <th>F. petición</th>
+                    <th>F. inicio</th>
+                    <th>F. fin</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-reservas">
+            </tbody>
+        </table>
+
+        <h3>Reseñas</h3>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Sanitario</th>
+                    <th>Valoración</th>
+                    <th>Comentario</th>
+                    <th>Aumentar</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-resenyas">
+            </tbody>
+        </table>
+
+        <h3>Parte de mantenimiento</h3>
+        <label>
+            Descripción del problema:
+            <input type="text" id="mantenimiento-averia">
+        </label>
+        <button id="btn-guardar-problema-mantenimiento">Guardar</button>
+         <br><br>
+
+        <button id="btn-volver-inicio">Volver al listado</button>
+    </section>
+
+    <script src="rest.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
