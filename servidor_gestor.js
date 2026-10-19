@@ -1,12 +1,24 @@
-var conexion = require("./conexion_mysql.js");
 var express = require("express");
 var jwt = require("jsonwebtoken");
+var { createClient } = require("@supabase/supabase-js");
+
 var CLAVE_JWT = "clave_secreta_telemedicina";
 var app = express();
 
-// NOTA: ya no se necesita cargar datos.js ni los contadores manuales
-// (idSanitarios, idGestores, idRecursos). MySQL asigna los ids solo
-// con AUTO_INCREMENT, y se recuperan con `resultado.insertId` tras un INSERT.
+// ============================================================
+// CONEXIÓN CON SUPABASE (PostgreSQL)
+// ============================================================
+// URL del proyecto y clave pública (anon / publishable key).
+// Se sacan de Supabase → Project Settings → API Keys (o del botón "Connect").
+var supabaseUrl = "https://ernjzzvyfmcqusitedau.supabase.co";
+var supabaseKey = "sb_publishable_z1GccgNAffjUDoita-069g_gBcyOP3F";
+var supabase = createClient(supabaseUrl, supabaseKey);
+
+// NOTA: ya no se escribe SQL a mano. supabase-js traduce cada cadena de
+// métodos a una petición a la API REST que Supabase genera sobre las tablas:
+//   supabase.from("gestores").select("*").eq("id", 3)
+//   ≡ SELECT * FROM gestores WHERE id = 3
+// Cada llamada devuelve { data, error }: data = filas, error = null si todo fue bien.
 
 console.log("Servidor iniciado correctamente.");
 
@@ -44,405 +56,385 @@ app.use("/api", function (req, res, next) {
 });
 
 
-// --- MÉTODO NUEVO (persistencia MySQL) ---
-app.get("/api/categorias", function (req, res) {
-    var sql = "SELECT * FROM categorias";
-    conexion.query(sql, function (err, categorias) {
-        if (err) {
-            console.log("Error al realizar la select", err);
-            res.status(500).json("Error al realizar la consulta");
-        } else {
-            res.status(200).json(categorias);
-        }
-    });
+// ============================================================
+// CATÁLOGOS
+// ============================================================
+app.get("/api/categorias", async function (req, res) {
+    var { data, error } = await supabase.from("categorias").select("*");
+
+    if (error) {
+        console.log("Error al realizar la select", error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    res.status(200).json(data);
 });
-// Para qué sirve: devuelve el catálogo completo de categorías. Se usa para
-// rellenar los <select> de categoría tanto en el filtro de búsqueda como en
-// la ficha de recurso. Al ser un catálogo fijo (el enunciado dice que no hace
-// falta gestionarlo), no necesita ni id ni filtros: siempre se pide entero.
+// Para qué sirve: catálogo de categorías para los <select> de categoría.
+// `async` + `await`: la función espera a que Supabase responda antes de
+// seguir, en lugar de anidar callbacks.
 
-// --- MÉTODO NUEVO ---
-app.get("/api/ubicaciones", function (req, res) {
-    var sql = "SELECT * FROM ubicaciones";
-    conexion.query(sql, function (err, ubicaciones) {
-        if (err) {
-            console.log("Error al realizar la select", err);
-            res.status(500).json("Error al realizar la consulta");
-        } else {
-            res.status(200).json(ubicaciones);
-        }
-    });
+app.get("/api/ubicaciones", async function (req, res) {
+    var { data, error } = await supabase.from("ubicaciones").select("*");
+
+    if (error) {
+        console.log("Error al realizar la select", error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    res.status(200).json(data);
 });
-// Para qué sirve: igual que categorias, alimenta el <select> de ubicación
-// (filtro de búsqueda y ficha de recurso). Mismo patrón, sin filtros.
+// Para qué sirve: catálogo de ubicaciones para el <select> de ubicación.
 
-// --- MÉTODO NUEVO ---
-app.get("/api/modelos", function (req, res) {
-    var sql = "SELECT * FROM modelos";
-    conexion.query(sql, function (err, modelos) {
-        if (err) {
-            console.log("Error al realizar la select", err);
-            res.status(500).json("Error al realizar la consulta");
-        } else {
-            res.status(200).json(modelos);
-        }
-    });
+app.get("/api/modelos", async function (req, res) {
+    var { data, error } = await supabase.from("modelos").select("*");
+
+    if (error) {
+        console.log("Error al realizar la select", error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    res.status(200).json(data);
 });
-// Para qué sirve: da los modelos (con su categoría y horas_maximas) para
-// rellenar el <select> de modelo y para que el cliente pueda resolver
-// "a qué categoría pertenece este recurso" sin pedirlo al servidor cada vez.
+// Para qué sirve: modelos (con categoría y horas_maximas) para el <select>
+// de modelo y para resolver la categoría de un recurso en el cliente.
 
-// --- MÉTODO NUEVO ---
-// El body sigue llamando "login" a la credencial (así lo especifica el
-// enunciado con su ejemplo JSON), pero se compara contra la columna real: usuario.
-app.post("/api/gestores/login", function (req, res) {
-    var sql = "SELECT * FROM gestores WHERE usuario = ? AND password = ?";
-    conexion.query(sql, [req.body.login, req.body.password], function (err, resultado) {
-        if (err) {
-            console.log("Error al realizar la select", err);
-            res.status(500).json("Error al realizar la consulta");
-        } else if (resultado.length === 0) {
-            res.status(403).json("Error en el login");
-        } else {
-            var token = jwt.sign({ id: resultado[0].id }, CLAVE_JWT, { expiresIn: "2h" });
-            res.status(200).json({ id: resultado[0].id, token: token });
-        }
-    });
+
+// ============================================================
+// GESTORES
+// ============================================================
+// El body llama "login" a la credencial (como en el enunciado), pero se
+// compara contra la columna real de la tabla: usuario.
+app.post("/api/gestores/login", async function (req, res) {
+    var { data, error } = await supabase
+        .from("gestores")
+        .select("id")
+        .eq("usuario", req.body.login)
+        .eq("password", req.body.password);
+
+    if (error) {
+        console.log("Error al realizar la select", error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    if (data.length === 0) {
+        return res.status(403).json("Error en el login");
+    }
+
+    var token = jwt.sign({ id: data[0].id }, CLAVE_JWT, { expiresIn: "2h" });
+    res.status(200).json({ id: data[0].id, token: token });
 });
-// Para qué sirve: valida las credenciales que manda la pantalla de login y,
-// si son correctas, devuelve el id del gestor (que el cliente guarda en
-// memoria para las siguientes peticiones, ya que nunca se muestra en la web).
-// Características:
-// - `.find()` síncrono se sustituye por un WHERE en la propia consulta.
-// - El resultado SQL es siempre un array; por eso se comprueba
-//   `resultado.length === 0` en vez de `=== undefined`.
-// - Placeholders `?` con array de valores en vez de concatenar el string
-//   a mano: el driver escapa los valores automáticamente.
+// Para qué sirve: valida credenciales y devuelve id del gestor + token JWT.
+// Dos `.eq()` encadenados equivalen a `WHERE usuario = ... AND password = ...`.
 
-// --- MÉTODO NUEVO ---
-app.post("/api/gestores", function (req, res) {
-    var sqlComprobar = "SELECT * FROM gestores WHERE usuario = ?";
-    conexion.query(sqlComprobar, [req.body.usuario], function (err, existente) {
-        if (err) {
-            console.log("Error al comprobar el usuario", err);
-            res.status(500).json("Error al realizar la consulta");
-            return;
-        }
+app.post("/api/gestores", async function (req, res) {
+    var comprobar = await supabase
+        .from("gestores")
+        .select("id")
+        .eq("usuario", req.body.usuario);
 
-        if (existente.length > 0) {
-            res.status(403).json("Error, usuario ya en uso.");
-            return;
-        }
+    if (comprobar.error) {
+        console.log("Error al comprobar el usuario", comprobar.error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    if (comprobar.data.length > 0) {
+        return res.status(403).json("Error, usuario ya en uso.");
+    }
 
-        var sqlInsertar = "INSERT INTO gestores (nombre, apellidos, usuario, password) VALUES (?, ?, ?, ?)";
-        var valores = [req.body.nombre, req.body.apellidos, req.body.usuario, req.body.password];
-
-        conexion.query(sqlInsertar, valores, function (err, resultado) {
-            if (err) {
-                console.log("Error al realizar el insert", err);
-                res.status(500).json("Error al realizar la inserción");
-            } else {
-                res.status(201).json("Gestor creado correctamente");
-            }
-        });
+    var insertar = await supabase.from("gestores").insert({
+        nombre: req.body.nombre,
+        apellidos: req.body.apellidos,
+        usuario: req.body.usuario,
+        password: req.body.password
     });
-});
-// Para qué sirve: registra un gestor nuevo desde la pantalla de "Registrar".
-// Características:
-// - Dos consultas ENCADENADAS: el INSERT solo se lanza dentro del callback
-//   del SELECT, porque hasta que ese callback llega no sabemos si el usuario
-//   ya existe. No hay forma de "esperar" de forma síncrona a la BD.
-// - `id: idGestores` desaparece: la columna es AUTO_INCREMENT.
-// - Cada `return;` tras un error evita que el código siga y se intente
-//   responder dos veces.
 
-// --- MÉTODO NUEVO ---
-app.put("/api/gestores/:id", function (req, res) {
+    if (insertar.error) {
+        console.log("Error al realizar el insert", insertar.error);
+        return res.status(500).json("Error al realizar la inserción");
+    }
+    res.status(201).json("Gestor creado correctamente");
+});
+// Para qué sirve: registra un gestor nuevo.
+// Con await, las dos consultas van una detrás de otra en el mismo nivel,
+// sin anidar: el INSERT solo se ejecuta si el SELECT dice que el usuario está libre.
+// El INSERT recibe un objeto { columna: valor }; el id lo pone PostgreSQL.
+
+app.put("/api/gestores/:id", async function (req, res) {
     var id = req.params.id;
 
-    var sqlExiste = "SELECT * FROM gestores WHERE id = ?";
-    conexion.query(sqlExiste, [id], function (err, gestor) {
-        if (err) {
-            console.log("Error al comprobar el gestor", err);
-            res.status(500).json("Error al realizar la consulta");
-            return;
-        }
+    var existe = await supabase.from("gestores").select("id").eq("id", id);
+    if (existe.error) {
+        console.log("Error al comprobar el gestor", existe.error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    if (existe.data.length === 0) {
+        return res.status(404).json("Gestor no encontrado");
+    }
 
-        if (gestor.length === 0) {
-            res.status(404).json("Gestor no encontrado");
-            return;
-        }
+    var duplicado = await supabase
+        .from("gestores")
+        .select("id")
+        .eq("usuario", req.body.usuario)
+        .neq("id", id);
+    if (duplicado.error) {
+        console.log("Error al comprobar el usuario", duplicado.error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    if (duplicado.data.length > 0) {
+        return res.status(403).json("Error, usuario ya en uso");
+    }
 
-        var sqlDuplicado = "SELECT * FROM gestores WHERE usuario = ? AND id != ?";
-        conexion.query(sqlDuplicado, [req.body.usuario, id], function (err, usuarioUsado) {
-            if (err) {
-                console.log("Error al comprobar el usuario", err);
-                res.status(500).json("Error al realizar la consulta");
-                return;
-            }
+    var actualizar = await supabase
+        .from("gestores")
+        .update({
+            nombre: req.body.nombre,
+            apellidos: req.body.apellidos,
+            usuario: req.body.usuario,
+            password: req.body.password
+        })
+        .eq("id", id);
 
-            if (usuarioUsado.length > 0) {
-                res.status(403).json("Error, usuario ya en uso");
-                return;
-            }
-
-            var sqlUpdate = "UPDATE gestores SET nombre = ?, apellidos = ?, usuario = ?, password = ? WHERE id = ?";
-            var valores = [req.body.nombre, req.body.apellidos, req.body.usuario, req.body.password, id];
-
-            conexion.query(sqlUpdate, valores, function (err, resultado) {
-                if (err) {
-                    console.log("Error al realizar el update", err);
-                    res.status(500).json("Error al realizar la actualización");
-                } else {
-                    res.status(200).json("Gestor actualizado correctamente");
-                }
-            });
-        });
-    });
+    if (actualizar.error) {
+        console.log("Error al realizar el update", actualizar.error);
+        return res.status(500).json("Error al realizar la actualización");
+    }
+    res.status(200).json("Gestor actualizado correctamente");
 });
-// Para qué sirve: guarda los cambios cuando el gestor edita sus propios
-// datos ("Editar datos" en la app).
-// Características: el más anidado de todos — TRES consultas en cadena
-// (existe → usuario duplicado en otro id → update), cada una dentro del
-// callback de la anterior.
+// Para qué sirve: guarda los cambios cuando el gestor edita sus datos.
+// Tres consultas seguidas: existe → usuario duplicado en otro id → update.
+// `.neq()` = "not equal" (el `id != ...` del SQL).
 
-// --- MÉTODO NUEVO ---
-app.get("/api/gestores/:id", function (req, res) {
-    var sql = "SELECT id, nombre, apellidos, usuario FROM gestores WHERE id = ?";
-    conexion.query(sql, [req.params.id], function (err, resultado) {
-        if (err) {
-            console.log("Error al realizar la select", err);
-            res.status(500).json("Error al realizar la consulta");
-        } else if (resultado.length === 0) {
-            res.status(404).json("Gestor no encontrado");
-        } else {
-            res.status(200).json(resultado[0]);
-        }
-    });
+app.get("/api/gestores/:id", async function (req, res) {
+    var { data, error } = await supabase
+        .from("gestores")
+        .select("id, nombre, apellidos, usuario")
+        .eq("id", req.params.id);
+
+    if (error) {
+        console.log("Error al realizar la select", error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    if (data.length === 0) {
+        return res.status(404).json("Gestor no encontrado");
+    }
+    res.status(200).json(data[0]);
 });
-// Para qué sirve: rellena la bienvenida ("Bienvenido X Y") y precarga el
-// formulario de edición de datos del gestor.
-// Características: se piden solo las columnas necesarias en el propio SQL
-// (`SELECT id, nombre, apellidos, usuario`) en vez de pedir todo y filtrar
-// en JS — así el password nunca sale de la base de datos.
+// Para qué sirve: bienvenida y precarga del formulario de edición.
+// En select() se piden solo esas columnas: el password nunca sale de la BD.
 
-// --- MÉTODO NUEVO ---
-app.get("/api/sanitarios/:id", function (req, res) {
-    var sql = "SELECT id, nombre, apellidos, usuario FROM sanitarios WHERE id = ?";
-    conexion.query(sql, [req.params.id], function (err, resultado) {
-        if (err) {
-            console.log("Error al realizar la select", err);
-            res.status(500).json("Error al realizar la consulta");
-        } else if (resultado.length === 0) {
-            res.status(404).json("Sanitario no encontrado");
-        } else {
-            res.status(200).json(resultado[0]);
-        }
-    });
+
+// ============================================================
+// SANITARIOS
+// ============================================================
+app.get("/api/sanitarios/:id", async function (req, res) {
+    var { data, error } = await supabase
+        .from("sanitarios")
+        .select("id, nombre, apellidos, usuario")
+        .eq("id", req.params.id);
+
+    if (error) {
+        console.log("Error al realizar la select", error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    if (data.length === 0) {
+        return res.status(404).json("Sanitario no encontrado");
+    }
+    res.status(200).json(data[0]);
 });
-// Para qué sirve: el cliente lo usa para traducir el id numérico de
-// sanitario a su nombre completo en las tablas de reservas y reseñas
-// (así nunca se muestra un id en pantalla).
+// Para qué sirve: traducir el id de sanitario a su nombre en las tablas de
+// reservas y reseñas.
 
-// --- MÉTODO NUEVO ---
-app.get("/api/recursos", function (req, res) {
-    var sql = "SELECT r.* FROM recursos r JOIN modelos m ON r.modelo = m.id WHERE 1 = 1";
-    var params = [];
 
+// ============================================================
+// RECURSOS
+// ============================================================
+app.get("/api/recursos", async function (req, res) {
+    var consulta = supabase.from("recursos").select("*");
+
+    // La categoría no está en `recursos`, sino en `modelos`: primero se buscan
+    // los modelos de esa categoría y luego los recursos cuyo modelo esté entre ellos.
     if (req.query.categoria !== undefined) {
-        sql += " AND m.categoria = ?";
-        params.push(req.query.categoria);
+        var modelos = await supabase
+            .from("modelos")
+            .select("id")
+            .eq("categoria", req.query.categoria);
+
+        if (modelos.error) {
+            console.log("Error al realizar la select", modelos.error);
+            return res.status(500).json("Error al realizar la consulta");
+        }
+
+        var idsModelos = modelos.data.map(function (m) { return m.id; });
+        consulta = consulta.in("modelo", idsModelos);
     }
     if (req.query.modelo !== undefined) {
-        sql += " AND r.modelo = ?";
-        params.push(req.query.modelo);
+        consulta = consulta.eq("modelo", req.query.modelo);
     }
     if (req.query.ubicacion !== undefined) {
-        sql += " AND r.ubicacion = ?";
-        params.push(req.query.ubicacion);
+        consulta = consulta.eq("ubicacion", req.query.ubicacion);
     }
     if (req.query.estado !== undefined) {
-        sql += " AND r.estado = ?";
-        params.push(req.query.estado);
+        consulta = consulta.eq("estado", req.query.estado);
     }
 
-    conexion.query(sql, params, function (err, recursos) {
-        if (err) {
-            console.log("Error al realizar la select", err);
-            res.status(500).json("Error al realizar la consulta");
-        } else {
-            res.status(200).json(recursos);
-        }
-    });
+    var { data, error } = await consulta;
+
+    if (error) {
+        console.log("Error al realizar la select", error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    res.status(200).json(data);
 });
-// Para qué sirve: alimenta la tabla de resultados de la búsqueda de recursos,
-// con los 4 filtros opcionales que ofrece la pantalla.
-// Características: el endpoint más distinto del original.
-// - El SQL se construye dinámicamente, añadiendo "AND columna = ?" solo para
-//   los filtros que el cliente ha mandado, con su valor en el array `params`.
-// - `WHERE 1 = 1` permite concatenar siempre "AND ..." sin mirar si es el
-//   primer filtro.
-// - El filtro por categoría necesita un JOIN con `modelos`, porque la
-//   categoría no está en `recursos` (solo el id del modelo).
-// - `SELECT r.*` con alias evita arrastrar columnas de `modelos` (como su
-//   propio `id`, que chocaría con el `id` de `recursos`).
+// Para qué sirve: búsqueda de recursos con 4 filtros opcionales.
+// - La consulta se va construyendo: cada filtro que manda el cliente añade
+//   un `.eq()`. No se ejecuta hasta el `await consulta` final.
+// - `.in("modelo", [1, 4])` ≡ `WHERE modelo IN (1, 4)`.
 
-// --- MÉTODO NUEVO ---
-app.get("/api/recursos/:id", function (req, res) {
-    var sql = "SELECT * FROM recursos WHERE id = ?";
-    conexion.query(sql, [req.params.id], function (err, resultado) {
-        if (err) {
-            console.log("Error al realizar la select", err);
-            res.status(500).json("Error al realizar la consulta");
-        } else if (resultado.length === 0) {
-            res.status(404).json("Recurso no encontrado");
-        } else {
-            res.status(200).json(resultado[0]);
-        }
-    });
+app.get("/api/recursos/:id", async function (req, res) {
+    var { data, error } = await supabase
+        .from("recursos")
+        .select("*")
+        .eq("id", req.params.id);
+
+    if (error) {
+        console.log("Error al realizar la select", error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    if (data.length === 0) {
+        return res.status(404).json("Recurso no encontrado");
+    }
+    res.status(200).json(data[0]);
 });
-// Para qué sirve: carga los datos de un recurso concreto al abrir su ficha.
+// Para qué sirve: carga los datos de un recurso al abrir su ficha.
 
-// --- MÉTODO NUEVO ---
-app.post("/api/recursos", function (req, res) {
-    var sql = "INSERT INTO recursos (modelo, ubicacion, numero_serie, estado) VALUES (?, ?, ?, ?)";
-    var valores = [req.body.modelo, req.body.ubicacion, req.body.numero_serie, req.body.estado];
+app.post("/api/recursos", async function (req, res) {
+    var { data, error } = await supabase
+        .from("recursos")
+        .insert({
+            modelo: req.body.modelo,
+            ubicacion: req.body.ubicacion,
+            numero_serie: req.body.numero_serie,
+            estado: req.body.estado
+        })
+        .select("id");
 
-    conexion.query(sql, valores, function (err, resultado) {
-        if (err) {
-            console.log("Error al realizar el insert", err);
-            res.status(500).json("Error al realizar la inserción");
-        } else {
-            res.status(201).json(resultado.insertId);
-        }
-    });
+    if (error) {
+        console.log("Error al realizar el insert", error);
+        return res.status(500).json("Error al realizar la inserción");
+    }
+    res.status(201).json(data[0].id);
 });
-// Para qué sirve: crea un recurso nuevo desde "Añadir Recurso".
-// Características: `idRecursos++` desaparece — el id lo pone MySQL solo
-// (AUTO_INCREMENT) y se recupera con `resultado.insertId`.
+// Para qué sirve: crea un recurso nuevo.
+// `.select("id")` tras el insert hace que Supabase devuelva la fila creada
+// con su id generado (sustituye al `insertId` de MySQL).
 
-// --- MÉTODO NUEVO ---
-app.put("/api/recursos/:id", function (req, res) {
-    var sql = "UPDATE recursos SET modelo = ?, ubicacion = ?, numero_serie = ?, estado = ? WHERE id = ?";
-    var valores = [req.body.modelo, req.body.ubicacion, req.body.numero_serie, req.body.estado, req.params.id];
+app.put("/api/recursos/:id", async function (req, res) {
+    var { data, error } = await supabase
+        .from("recursos")
+        .update({
+            modelo: req.body.modelo,
+            ubicacion: req.body.ubicacion,
+            numero_serie: req.body.numero_serie,
+            estado: req.body.estado
+        })
+        .eq("id", req.params.id)
+        .select("id");
 
-    conexion.query(sql, valores, function (err, resultado) {
-        if (err) {
-            console.log("Error al realizar el update", err);
-            res.status(500).json("Error al realizar la actualización");
-        } else if (resultado.affectedRows === 0) {
-            res.status(404).json("Recurso no encontrado");
-        } else {
-            res.status(200).json("Recurso actualizado correctamente");
-        }
-    });
+    if (error) {
+        console.log("Error al realizar el update", error);
+        return res.status(500).json("Error al realizar la actualización");
+    }
+    if (data.length === 0) {
+        return res.status(404).json("Recurso no encontrado");
+    }
+    res.status(200).json("Recurso actualizado correctamente");
 });
-// Para qué sirve: guarda los cambios al editar la ficha de un recurso.
-// Características: a diferencia de gestores, aquí no hay regla de negocio
-// previa que comprobar — una sola consulta. Se lanza el UPDATE directo y se
-// mira `resultado.affectedRows`: 0 = no existía (404), 1 = actualizado.
+// Para qué sirve: guarda los cambios de la ficha de un recurso.
+// `.select("id")` devuelve las filas modificadas: si viene vacío, no existía (404).
 
-// --- MÉTODO NUEVO ---
-app.delete("/api/recursos/:id", function (req, res) {
-    var sql = "DELETE FROM recursos WHERE id = ?";
-    conexion.query(sql, [req.params.id], function (err, resultado) {
-        if (err) {
-            console.log("Error al realizar el delete", err);
-            res.status(500).json("Error al realizar el borrado");
-        } else if (resultado.affectedRows === 0) {
-            res.status(404).json("Recurso no encontrado");
-        } else {
-            res.status(200).json("Recurso eliminado correctamente");
-        }
-    });
+app.delete("/api/recursos/:id", async function (req, res) {
+    var { data, error } = await supabase
+        .from("recursos")
+        .delete()
+        .eq("id", req.params.id)
+        .select("id");
+
+    if (error && error.code === "23503") {
+        return res.status(409).json("No se puede borrar: el recurso tiene reservas, reseñas o revisiones asociadas");
+    }
+    if (error) {
+        console.log("Error al realizar el delete", error);
+        return res.status(500).json("Error al realizar el borrado");
+    }
+    if (data.length === 0) {
+        return res.status(404).json("Recurso no encontrado");
+    }
+    res.status(200).json("Recurso eliminado correctamente");
 });
 // Para qué sirve: borra un recurso desde el botón "Borrar" del listado.
-// Características / OJO: `findIndex` + `splice` (memoria) se convierte en un
-// DELETE + `affectedRows`. Pero hay una diferencia real de comportamiento
-// que no tenías antes: si el recurso tiene reservas o reseñas asociadas, la
-// base de datos RECHAZA el borrado por la clave foránea (error
-// ER_ROW_IS_REFERENCED_2), y aquí eso cae en el `if (err)` como un 500
-// genérico. La versión en memoria lo borraba igualmente, dejando huérfanas
-// esas reservas/reseñas. Pendiente de decidir contigo si se distingue ese
-// caso con un código de estado más claro (p.ej. 409).
+// Si otra tabla lo referencia, PostgreSQL rechaza el borrado con el código
+// 23503 (violación de clave foránea) y se responde 409 Conflict.
 
-// --- MÉTODO NUEVO ---
-app.get("/api/recursos/:id/reservas", function (req, res) {
-    var sqlRecurso = "SELECT * FROM recursos WHERE id = ?";
-    conexion.query(sqlRecurso, [req.params.id], function (err, recurso) {
-        if (err) {
-            console.log("Error al comprobar el recurso", err);
-            res.status(500).json("Error al realizar la consulta");
-            return;
-        }
+app.get("/api/recursos/:id/reservas", async function (req, res) {
+    var recurso = await supabase.from("recursos").select("id").eq("id", req.params.id);
 
-        if (recurso.length === 0) {
-            res.status(404).json("Recurso no encontrado");
-            return;
-        }
+    if (recurso.error) {
+        console.log("Error al comprobar el recurso", recurso.error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    if (recurso.data.length === 0) {
+        return res.status(404).json("Recurso no encontrado");
+    }
 
-        var sqlReservas = "SELECT * FROM reservas WHERE recurso = ?";
-        conexion.query(sqlReservas, [req.params.id], function (err, reservas) {
-            if (err) {
-                console.log("Error al realizar la select", err);
-                res.status(500).json("Error al realizar la consulta");
-            } else {
-                res.status(200).json(reservas);
-            }
-        });
-    });
+    var reservas = await supabase.from("reservas").select("*").eq("recurso", req.params.id);
+
+    if (reservas.error) {
+        console.log("Error al realizar la select", reservas.error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    res.status(200).json(reservas.data);
 });
-// Para qué sirve: rellena la tabla "Reservas" dentro de la ficha del recurso.
-// Características: dos consultas encadenadas, porque son dos preguntas
-// distintas: "¿existe el recurso?" (404 si no) y "¿qué reservas tiene?"
-// (puede ser, legítimamente, un array vacío). Un JOIN único no distinguiría
-// "recurso sin reservas" de "recurso inexistente".
+// Para qué sirve: tabla "Reservas" de la ficha del recurso. Dos consultas
+// para distinguir "recurso inexistente" (404) de "recurso sin reservas" ([]).
 
-// --- MÉTODO NUEVO ---
-app.get("/api/recursos/:id/resenyas", function (req, res) {
-    var sqlRecurso = "SELECT * FROM recursos WHERE id = ?";
-    conexion.query(sqlRecurso, [req.params.id], function (err, recurso) {
-        if (err) {
-            console.log("Error al comprobar el recurso", err);
-            res.status(500).json("Error al realizar la consulta");
-            return;
-        }
+app.get("/api/recursos/:id/resenyas", async function (req, res) {
+    var recurso = await supabase.from("recursos").select("id").eq("id", req.params.id);
 
-        if (recurso.length === 0) {
-            res.status(404).json("Recurso no encontrado");
-            return;
-        }
+    if (recurso.error) {
+        console.log("Error al comprobar el recurso", recurso.error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    if (recurso.data.length === 0) {
+        return res.status(404).json("Recurso no encontrado");
+    }
 
-        var sqlResenyas = "SELECT * FROM resenyas WHERE recurso = ?";
-        conexion.query(sqlResenyas, [req.params.id], function (err, resenyas) {
-            if (err) {
-                console.log("Error al realizar la select", err);
-                res.status(500).json("Error al realizar la consulta");
-            } else {
-                res.status(200).json(resenyas);
-            }
-        });
-    });
+    var resenyas = await supabase.from("resenyas").select("*").eq("recurso", req.params.id);
+
+    if (resenyas.error) {
+        console.log("Error al realizar la select", resenyas.error);
+        return res.status(500).json("Error al realizar la consulta");
+    }
+    res.status(200).json(resenyas.data);
 });
-// Para qué sirve: rellena la tabla "Reseñas" dentro de la ficha del recurso.
-// Mismo patrón que /reservas y por la misma razón.
+// Para qué sirve: tabla "Reseñas" de la ficha del recurso. Mismo patrón.
 
 
-//-----------------------------------------------------------------------------------------------------------------------------------------------
-//-----------------------------------------------------------------------------------------------------------------------------------------------
-//-----------------------------------------------------------------------------------------------------------------------------------------------
+// ============================================================
+// ÁREAS DE SALUD
+// ============================================================
+app.post("/api/areas_salud", async function (req, res) {
+    var { data, error } = await supabase
+        .from("areas")
+        .insert({
+            codigo_postal: req.body.codigo_postal,
+            nombre: req.body.nombre,
+            gestor: req.body.gestor,
+            sanitario: req.body.sanitario
+        })
+        .select("codigo_postal");
 
-app.post("/api/areas_salud", function(req,res) {
-    var sql = "INSERT INTO areas (codigo_postal, nombre, gestor, sanitario) VALUES (?, ?, ?, ?)";
-    var valores = [req.body.codigo_postal, req.body.nombre, req.body.gestor, req.body.sanitario];
+    if (error) {
+        console.log("Error al realizar el insert", error);
+        return res.status(500).json("Error al realizar la inserción");
+    }
+    res.status(201).json(data[0].codigo_postal);
+});
+// Para qué sirve: crea un área de salud. La clave es codigo_postal (no es
+// autoincremental), así que se devuelve ese valor.
 
-    conexion.query(sql, valores, function (err, resultado) {
-        if (err) {
-            console.log("Error al realizar el insert", err);
-            res.status(500).json("Error al realizar la inserción");
-        } else {
-            res.status(201).json(resultado.insertId);
-        }
-    });
-})
 app.listen(3000);
