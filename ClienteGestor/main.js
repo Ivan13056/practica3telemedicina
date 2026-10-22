@@ -623,6 +623,8 @@ window.onload = function () {
 
         rest.get(URL_MINISTERIO, function (status, registros) {
 
+            if (status !== 200 || !Array.isArray(registros)) return;
+
             let totales = {};
 
             registros.forEach(reg => {
